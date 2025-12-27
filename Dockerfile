@@ -1,36 +1,18 @@
-FROM node:18-alpine
-
-# Install dependencies for Sharp (native image processing library)
-RUN apk add --no-cache \
-    python3 \
-    make \
-    g++ \
-    cairo-dev \
-    jpeg-dev \
-    pango-dev \
-    giflib-dev \
-    pixman-dev
+FROM python:3.12-slim
 
 WORKDIR /app
 
-# Copy package files
-COPY package*.json ./
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    libjpeg62-turbo \
+    zlib1g \
+  && rm -rf /var/lib/apt/lists/*
 
-# Install dependencies
-RUN npm ci --only=production
+COPY requirements.txt /app/requirements.txt
+RUN pip install --no-cache-dir -r /app/requirements.txt
 
-# Copy application code
-COPY index.js ./
+COPY . /app
 
-# Expose port
+# Using port 1359 as requested
 EXPOSE 1359
 
-# Health check
-HEALTHCHECK --interval=30s --timeout=10s --start-period=5s --retries=3 \
-  CMD node -e "require('http').get('http://localhost:3000/health', (r) => {process.exit(r.statusCode === 200 ? 0 : 1)})"
-
-# Run as non-root user for security
-USER node
-
-# Start the service
-CMD ["npm", "start"]
+CMD ["uvicorn", "app:app", "--host", "0.0.0.0", "--port", "1359"]
