@@ -72,7 +72,8 @@ def health():
 
 @app.post("/overlay")
 async def overlay_logo(
-    image: UploadFile = File(...),
+    image: Optional[UploadFile] = File(None),
+    image_url: Optional[str] = Form(default=None),
     logo_url: Optional[str] = Form(default=None),
     position: Optional[str] = Form(default=None),
     margin_px: Optional[int] = Form(default=None),
@@ -96,14 +97,25 @@ async def overlay_logo(
     op = opacity if opacity is not None else float(os.getenv("DEFAULT_OPACITY", "0.95"))
     op = clamp_float(op, 0.05, 1.0)
 
-    raw = await image.read()
-    if not raw:
-        raise HTTPException(status_code=400, detail="Empty image upload")
-
-    try:
-        base = Image.open(io.BytesIO(raw)).convert("RGBA")
-    except Exception:
-        raise HTTPException(status_code=400, detail="Invalid image format")
+    # Load Base Image
+    base = None
+    if image:
+        raw = await image.read()
+        if not raw:
+             raise HTTPException(status_code=400, detail="Empty image upload")
+        try:
+            base = Image.open(io.BytesIO(raw)).convert("RGBA")
+        except Exception:
+            raise HTTPException(status_code=400, detail="Invalid image file format")
+    elif image_url:
+        try:
+            resp = requests.get(image_url, timeout=15)
+            resp.raise_for_status()
+            base = Image.open(io.BytesIO(resp.content)).convert("RGBA")
+        except Exception as e:
+             raise HTTPException(status_code=400, detail=f"Failed to fetch base image from URL: {e}")
+    else:
+        raise HTTPException(status_code=400, detail="Either 'image' file or 'image_url' must be provided")
 
     # Load logo (dynamic or static)
     logo = load_logo(logo_url)
