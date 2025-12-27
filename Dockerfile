@@ -23,7 +23,7 @@ RUN npm ci --only=production
 COPY index.js ./
 
 # Expose port
-EXPOSE 3000
+EXPOSE 1359
 
 # Health check
 HEALTHCHECK --interval=30s --timeout=10s --start-period=5s --retries=3 \
